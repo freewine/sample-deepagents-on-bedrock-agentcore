@@ -5,12 +5,44 @@
   "runtimes": [
     {
       "name": "agent",
-      "build": "CodeZip",
       "modelProvider": "Bedrock",
+      "build": "CodeZip",
       "entrypoint": "main.py",
       "codeLocation": "app/agent",
       "runtimeVersion": "PYTHON_3_14",
       "protocol": "HTTP"
     }
-  ]
+  ],
+  "memories": [],
+  "knowledgeBases": [],
+  "credentials": [],
+  "evaluators": [],
+  "onlineEvalConfigs": [],
+  "agentCoreGateways": [
+    {
+      "name": "WebSearchGW",
+      "protocolType": "MCP",
+      "targets": [
+        {
+          "name": "web-search",
+          "targetType": "connector",
+          "connectorId": "web-search",
+          "configurations": [
+            {
+              "name": "WebSearch",
+              "parameterValues": {
+                "maxResults": 10
+              }
+            }
+          ]
+        }
+      ],
+      "authorizerType": "AWS_IAM",
+      "enableSemanticSearch": true,
+      "exceptionLevel": "NONE"
+    }
+  ],
+  "policyEngines": [],
+  "configBundles": [],
+  "harnesses": []
 }

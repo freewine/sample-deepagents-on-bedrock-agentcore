@@ -1,28 +1,36 @@
-from deepagents import create_deep_agent
-from langchain.tools import tool
-from langgraph.checkpoint.memory import InMemorySaver
+import asyncio
+import os
+
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from model.load import load_model
+
+from agents import AGENTS
+from harness.builder import build_agent
+from harness.spec import AgentSpec
 
 app = BedrockAgentCoreApp()
 
-SYSTEM_PROMPT = "You are a helpful assistant. Use tools when appropriate."
+_agent = None
+_lock = asyncio.Lock()
 
 
-@tool
-def add_numbers(a: int, b: int) -> int:
-    """Return the sum of two numbers"""
-    return a + b
+def get_spec(name: str | None = None) -> AgentSpec:
+    name = name or os.environ.get("AGENT_NAME", "general")
+    try:
+        return AGENTS[name]
+    except KeyError:
+        raise ValueError(f"Unknown agent {name!r}. Available: {sorted(AGENTS)}") from None
 
 
-tools = [add_numbers]
+SPEC = get_spec()  # fail fast on an unknown AGENT_NAME
 
-agent = create_deep_agent(
-    model=load_model(),
-    tools=tools,
-    system_prompt=SYSTEM_PROMPT,
-    checkpointer=InMemorySaver(),
-)
+
+async def get_agent():
+    global _agent
+    if _agent is None:
+        async with _lock:
+            if _agent is None:
+                _agent = await build_agent(SPEC)
+    return _agent
 
 
 @app.entrypoint
@@ -32,6 +40,7 @@ async def invoke(payload, context):
         yield {"error": "payload must be a JSON object with a non-empty string 'prompt'"}
         return
 
+    agent = await get_agent()
     session_id = context.session_id or "default-session"
     config = {"configurable": {"thread_id": session_id}}
 

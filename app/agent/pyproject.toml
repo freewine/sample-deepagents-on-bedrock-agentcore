@@ -12,8 +12,15 @@ dependencies = [
     "aws-opentelemetry-distro ~= 0.21.0",
     "bedrock-agentcore ~= 1.26.0",
     "deepagents[aws] ~= 0.7.38",
+    "langchain-mcp-adapters ~= 0.3.2",
     "opentelemetry-instrumentation-langchain ~= 0.62.3",
 ]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
