@@ -5,15 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "agent"
 version = "0.1.0"
-description = "AgentCore Runtime Application using LangChain"
+description = "AgentCore Runtime Application using LangChain Deep Agents"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 dependencies = [
     "aws-opentelemetry-distro ~= 0.21.0",
-    "bedrock-agentcore ~= 1.22.0",
-    "langchain ~= 1.4.0",
-    "langchain-aws ~= 1.7.5",
-    "langgraph ~= 1.2.11",
+    "bedrock-agentcore ~= 1.26.0",
+    "deepagents[aws] ~= 0.7.38",
     "opentelemetry-instrumentation-langchain ~= 0.62.3",
 ]
 
