@@ -5,6 +5,7 @@ from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
 from agents import AGENTS
 from harness.builder import build_agent
+from harness.checkpointer import create_checkpointer
 from harness.spec import AgentSpec
 
 app = BedrockAgentCoreApp()
@@ -29,7 +30,7 @@ async def get_agent():
     if _agent is None:
         async with _lock:
             if _agent is None:
-                _agent = await build_agent(SPEC)
+                _agent = await build_agent(SPEC, checkpointer=create_checkpointer())
     return _agent
 
 
@@ -40,8 +41,12 @@ async def invoke(payload, context):
         yield {"error": "payload must be a JSON object with a non-empty string 'prompt'"}
         return
 
+    session_id = context.session_id
+    if not session_id:
+        yield {"error": "missing runtime session id"}
+        return
+
     agent = await get_agent()
-    session_id = context.session_id or "default-session"
     config = {"configurable": {"thread_id": session_id}}
 
     async with await agent.astream_events(

@@ -8,6 +8,7 @@ from pathlib import Path
 from deepagents import FilesystemPermission, create_deep_agent
 from deepagents.backends import CompositeBackend, FilesystemBackend, StateBackend
 from langchain_core.tools import BaseTool
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
 
 from harness.gateway import load_gateway_tools
@@ -48,7 +49,13 @@ def stage_skills(names: Sequence[str], skills_dir: Path = SKILLS_DIR) -> Path | 
     return staged
 
 
-async def build_agent(spec: AgentSpec, *, model=None, gateway_loader=load_gateway_tools):
+async def build_agent(
+    spec: AgentSpec,
+    *,
+    model=None,
+    gateway_loader=load_gateway_tools,
+    checkpointer: BaseCheckpointSaver | None = None,
+):
     tools = await resolve_tools(spec.tools, LOCAL_TOOLS, gateway_loader)
     kwargs = {}
     staged = stage_skills(spec.skills)
@@ -67,7 +74,7 @@ async def build_agent(spec: AgentSpec, *, model=None, gateway_loader=load_gatewa
         model=model or load_model(),
         tools=tools,
         system_prompt=spec.system_prompt,
-        checkpointer=InMemorySaver(),
+        checkpointer=InMemorySaver() if checkpointer is None else checkpointer,
         name=spec.name,
         **kwargs,
     )

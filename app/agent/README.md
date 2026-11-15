@@ -2,8 +2,8 @@
 
 A LangChain [Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview)
 agent on AgentCore Runtime, calling Claude through Amazon Bedrock. The agent is
-built with `create_deep_agent`, keeps conversation history per Runtime
-session, and streams its response.
+built with `create_deep_agent`, persists its state per Runtime session in
+DynamoDB + S3, and streams its response.
 
 ## What's here
 
@@ -14,11 +14,12 @@ which one.
 - `main.py`: `BedrockAgentCoreApp` with an async entrypoint that reads `prompt`
   from the payload, lazily builds the selected agent on first request (cached,
   retried if the build fails), and streams each completed model message back
-  as a JSON event of content blocks. An `InMemorySaver` keyed on the Runtime
-  session id carries history between turns.
+  as a JSON event of content blocks. Each Runtime session is one checkpointed
+  thread (see below).
 - `agents/`: the registry `AGENTS`, mapping name to `AgentSpec`.
 - `harness/`: `AgentSpec`, the builder (`build_agent`, resolves tools and
-  stages skills), and the AgentCore Gateway MCP client (SigV4-signed).
+  stages skills), the AgentCore Gateway MCP client (SigV4-signed), and the
+  checkpointer factory (`checkpointer.py`).
 - `tools/`: local tools, registered in `LOCAL_TOOLS`.
 - `skills/<name>/SKILL.md`: skills, mounted read-only at `/skills/`.
 - `model/load.py`: creates the Bedrock chat model with `init_chat_model`.
@@ -28,6 +29,23 @@ which one.
 The agent also gets the built-in Deep Agents tools (`write_todos`, virtual
 filesystem tools, `task`). `execute` is not usable because the default backend
 is not a sandbox.
+
+## State
+
+Each request needs a Runtime session id, used as the LangGraph `thread_id`.
+Requests without one are rejected.
+
+- **Checkpoints** (`harness/checkpointer.py`): `DynamoDBSaver` from
+  `langgraph-checkpoint-aws` stores the full agent state (messages, todos,
+  virtual files) in the `CHECKPOINT_TABLE` table, with checkpoints over 350 KB
+  offloaded to `CHECKPOINT_BUCKET` under `checkpoints/`. Both are created in
+  `agentcore/cdk/lib/cdk-stack.ts`. Checkpoints do not expire. Setting
+  `CHECKPOINT_TTL_DAYS` enables expiry, but first cap session lifetime below
+  the TTL: `messages` is a `DeltaChannel`, so an expired older snapshot
+  silently truncates a long-lived thread. The saver also needs
+  `s3:Get/PutBucketLifecycleConfiguration` on the bucket once a TTL is set.
+  Without `CHECKPOINT_TABLE` (local dev) the agent falls back to
+  `InMemorySaver`.
 
 ## Develop
 
@@ -47,7 +65,8 @@ curl -N -X POST http://localhost:<port>/invocations -H 'Content-Type: applicatio
 
 Environment variables for local development go in `agentcore/.env.local`
 (gitignored). Set `AGENTCORE_GATEWAY_WEBSEARCHGW_URL` there to use Gateway tools
-locally.
+locally, and optionally `CHECKPOINT_TABLE` / `CHECKPOINT_BUCKET` (values from
+the deployed stack) to use the real checkpoint store.
 
 ## Deploy
 
@@ -75,9 +94,6 @@ from the dependencies.
 - **Gateway tool.** Put the MCP tool name (e.g. `web-search___WebSearch`)
   directly in the spec's `tools`. The Gateway URL comes from
   `AGENTCORE_GATEWAY_WEBSEARCHGW_URL` (set in `agentcore/.env.local` locally).
-- **Durable memory.** Replace `InMemorySaver()` in `harness/builder.py` with
-  `AgentCoreMemorySaver` from `langgraph-checkpoint-aws` and add `actor_id`
-  next to `thread_id` in the `configurable` config.
 
 See the [Deep Agents documentation](https://docs.langchain.com/oss/python/deepagents/overview)
 for the full `create_deep_agent` surface.

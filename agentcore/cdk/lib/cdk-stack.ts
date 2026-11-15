@@ -1,5 +1,7 @@
 import { AgentCoreApplication, type AgentCoreApplicationProps } from '@aws/agentcore-cdk';
-import { Stack, type StackProps } from 'aws-cdk-lib';
+import { RemovalPolicy, Stack, type StackProps } from 'aws-cdk-lib';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
 
 export interface AgentCoreStackProps extends StackProps {
@@ -19,14 +21,30 @@ export class AgentCoreStack extends Stack {
     super(scope, id, props);
     this.application = new AgentCoreApplication(this, 'Application', props.application);
 
-    // Example: give a runtime a DynamoDB table.
-    //
-    // import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-    // const orders = new dynamodb.Table(this, 'Orders', {
-    //   partitionKey: { name: 'pk', type: dynamodb.AttributeType.STRING },
-    // });
-    // const checkout = this.application.runtime('checkout'); // or .harness('support')
-    // checkout.grantReadWrite(orders);
-    // checkout.addEnvironmentVariable('ORDERS_TABLE', orders.tableName);
+    // LangGraph checkpoint store for the `agent` runtime (DynamoDBSaver from
+    // langgraph-checkpoint-aws). Checkpoints above 350 KB are offloaded to the bucket.
+    // No TTL is set by the agent today (CHECKPOINT_TTL_DAYS unset); the TTL attribute is
+    // enabled so it can be turned on later without a table change.
+    const checkpoints = new dynamodb.Table(this, 'AgentCheckpoints', {
+      partitionKey: { name: 'PK', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'SK', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: 'ttl',
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+    const checkpointBucket = new s3.Bucket(this, 'AgentCheckpointBucket', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
+    const agent = this.application.runtime('agent');
+    checkpoints.grantReadWriteData(agent);
+    checkpointBucket.grantReadWrite(agent, 'checkpoints/*');
+    agent.addEnvironmentVariable('CHECKPOINT_TABLE', checkpoints.tableName);
+    agent.addEnvironmentVariable('CHECKPOINT_BUCKET', checkpointBucket.bucketName);
   }
 }
