@@ -10,14 +10,28 @@
       "entrypoint": "main.py",
       "codeLocation": "app/agent",
       "runtimeVersion": "PYTHON_3_14",
-      "protocol": "HTTP"
+      "protocol": "HTTP",
+      "envVars": [
+        { "name": "AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT", "value": "true" }
+      ]
     }
   ],
   "memories": [],
   "knowledgeBases": [],
   "credentials": [],
   "evaluators": [],
-  "onlineEvalConfigs": [],
+  "onlineEvalConfigs": [
+    {
+      "name": "eval",
+      "agent": "agent",
+      "evaluators": [
+        "Builtin.Correctness",
+        "Builtin.GoalSuccessRate",
+        "Builtin.ToolSelectionAccuracy"
+      ],
+      "samplingRate": 10
+    }
+  ],
   "agentCoreGateways": [
     {
       "name": "WebSearchGW",

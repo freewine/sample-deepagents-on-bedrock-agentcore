@@ -76,8 +76,9 @@ agentcore invoke --runtime agent --payload '{"prompt":"Hello!"}'
 ```
 
 Traces are collected automatically: AgentCore Runtime starts the agent under
-`opentelemetry-instrument`, which picks up `opentelemetry-instrumentation-langchain`
-from the dependencies.
+`opentelemetry-instrument`, which loads the ADOT distro (`aws-opentelemetry-distro`)
+before `main.py` runs. ADOT's built-in LangChain/LangGraph instrumentation emits
+the agent, model, and tool spans.
 
 ## Extending
 

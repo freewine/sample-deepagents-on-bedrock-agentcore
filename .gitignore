@@ -24,3 +24,17 @@ tmp.md
 
 # AgentCore deployment targets (account IDs; auto-created by `agentcore deploy`)
 agentcore/aws-targets.json
+
+# Omni Studio (local state, machine-specific MCP config, auto-installed skills)
+.omni/
+.env.omni
+.mcp.json
+.claude/skills/omni/
+.claude/skills/omni-*/
+.kiro/skills/omni/
+.kiro/skills/omni-*/
+.agents/skills/omni/
+.agents/skills/omni-*/
+
+# Claude Code personal settings (project-shared settings.json and skills are tracked)
+.claude/settings.local.json
