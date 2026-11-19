@@ -21,3 +21,6 @@ agentcore/cdk/cdk.out/
 
 
 tmp.md
+
+# AgentCore deployment targets (account IDs; auto-created by `agentcore deploy`)
+agentcore/aws-targets.json
